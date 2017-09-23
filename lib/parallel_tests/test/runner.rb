@@ -86,10 +86,11 @@ module ParallelTests
 
         def execute_command_and_capture_output(env, cmd, silence)
           pid = nil
-          output = IO.popen(env, cmd) do |io|
+          output = ''
+          IO.popen(env, cmd) do |io|
             pid = io.pid
             ParallelTests.pids.add(pid)
-            capture_output(io, silence)
+            output = capture_output(io, silence)
           end
           ParallelTests.pids.delete(pid) if pid
           exitstatus = $?.exitstatus
@@ -144,23 +145,16 @@ module ParallelTests
           end
         end
 
-        # read output of the process and print it in chunks
-        def capture_output(out, silence)
-          result = ""
-          loop do
-            begin
-              read = out.readpartial(1000000) # read whatever chunk we can get
-              if Encoding.default_internal
-                read = read.force_encoding(Encoding.default_internal)
-              end
-              result << read
-              unless silence
-                $stdout.print read
-                $stdout.flush
-              end
+        def capture_output(io, silence)
+          output = ''
+          io.each do |line|
+            output += line
+            unless silence
+              $stdout.print line
+              $stdout.flush
             end
-          end rescue EOFError
-          result
+          end
+          output
         end
 
         def sort_by_runtime(tests, runtimes, options={})
